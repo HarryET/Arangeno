@@ -342,12 +342,11 @@ export class Connection {
           let parsedBody: any = undefined;
           if (res.body.length && contentType && contentType.match(MIME_JSON)) {
             try {
-              parsedBody = res.body;
-              parsedBody = JSON.parse(parsedBody);
+              parsedBody = await res.json();
             } catch (e) {
               if (!expectBinary) {
                 if (typeof parsedBody !== "string") {
-                  parsedBody = res.body.toString("utf-8");
+                  parsedBody = await res.text();
                 }
                 e.response = res;
                 reject(e);
@@ -367,17 +366,13 @@ export class Connection {
             parsedBody.hasOwnProperty("errorMessage") &&
             parsedBody.hasOwnProperty("errorNum")
           ) {
-            // @ts-ignore
-            res.body = parsedBody;
-            reject(new ArangoError(res));
+            reject(new ArangoError({ ...res, body: parsedBody }));
           } else if (res.status && res.status >= 400) {
-            // @ts-ignore
-            res.body = parsedBody;
-            reject(new HttpError(res));
+            reject(new HttpError({ ...res, body: parsedBody }));
           } else {
-            // @ts-ignore
-            if (!expectBinary) res.body = parsedBody;
-            resolve(getter ? getter(res) : (res as any));
+            resolve(
+              getter ? getter({ ...res, body: parsedBody }) : (res as any),
+            );
           }
         },
       });
