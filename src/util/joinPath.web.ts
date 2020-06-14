@@ -1,2 +1,2 @@
-import path from "https://dev.jspm.io/npm:path";
-export const joinPath = path.join;
+import { posix } from "https://deno.land/std/node/path.ts";
+export const joinPath = posix.join;

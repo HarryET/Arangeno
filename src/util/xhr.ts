@@ -1,4 +1,5 @@
 import { Errback } from "./types.ts";
+import { ArangoError, HttpError } from "../error.ts";
 
 const xhr = (
   { url, ...options }: any,
@@ -7,23 +8,23 @@ const xhr = (
   const req = new Request(url, options);
 
   fetch(req)
-    .catch((err) => err)
-    .then(async (res) => {
-      if (res instanceof Error) {
-        throw res;
-      } else {
-        const clone = res.clone() as Response;
-        const data = await clone.json();
-
-        if (data?.error) {
-          data.request = req;
-          cb(data);
-        } else {
-          res.data = data;
-          cb(null, res);
+    .then(async (response) => {
+      if (!options?.expectBinary) {
+        let body;
+        body = await response.clone().json();
+        if (body?.error) {
+          return cb(new ArangoError({ ...response, body, request: req }));
         }
+
+        return cb(null, response);
+      } else {
+        cb(new HttpError({ ...response, body: null, request: req }), {
+          ...response,
+          body: null,
+        });
       }
-    });
+    })
+    .catch((error) => cb(error));
 
   return req;
 };

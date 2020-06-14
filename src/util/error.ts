@@ -1,3 +1,2 @@
-import ExtendableError from "https://dev.jspm.io/npm:es6-error";
-
-export default ExtendableError as typeof Error;
+import ExtendableError from "https://cdn.pika.dev/es6-error@^4.1.1";
+export default ExtendableError;

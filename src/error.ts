@@ -1,5 +1,3 @@
-import ExtendableError from "./util/error.ts";
-
 const messages: { [key: string]: string } = {
   0: "Network Error",
   400: "Bad Request",
@@ -59,17 +57,18 @@ export function isArangoError(err: any): err is ArangoError {
   return Boolean(err && err.isArangoError);
 }
 
-export class ArangoError extends ExtendableError {
+export class ArangoError extends Error {
   name = "ArangoError";
   isArangoError = true;
   errorNum: number;
   code: number;
   statusCode: number;
   response: any;
+
   constructor(response: any) {
     super();
     this.response = response;
-    this.statusCode = response.statusCode;
+    this.statusCode = response.status;
     this.message = response.body.errorMessage;
     this.errorNum = response.body.errorNum;
     this.code = response.body.code;
@@ -81,7 +80,7 @@ export class ArangoError extends ExtendableError {
   }
 }
 
-export class HttpError extends ExtendableError {
+export class HttpError extends Error {
   name = "HttpError";
   response: any;
   code: number;
@@ -89,7 +88,7 @@ export class HttpError extends ExtendableError {
   constructor(response: any) {
     super();
     this.response = response;
-    this.statusCode = response.statusCode || 500;
+    this.statusCode = response.status || 500;
     this.message = messages[this.statusCode] || messages[500];
     this.code = this.statusCode;
     const err = new Error(this.message);

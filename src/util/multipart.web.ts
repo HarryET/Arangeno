@@ -1,5 +1,4 @@
 import { Fields, MultipartRequest } from "./multipart.ts";
-
 import { Errback } from "./types.ts";
 
 export function toForm(fields: Fields, callback: Errback<MultipartRequest>) {

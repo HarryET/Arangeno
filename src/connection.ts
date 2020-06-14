@@ -2,9 +2,7 @@ import { ArangoError, HttpError } from "./error.ts";
 import { ArangojsResponse, createRequest, isBrowser } from "./util/request.ts";
 import { sanitizeUrl } from "./util/sanitizeUrl.ts";
 import { Errback } from "./util/types.ts";
-import X3LinkedList from "https://dev.jspm.io/x3-linkedlist";
-// @ts-ignore
-const { LinkedList } = X3LinkedList;
+import { LinkedList } from "https://github.com/Tnifey/x3-linkedlist-deno/raw/master/src/index.ts";
 
 const MIME_JSON = /\/(json|javascript)(\W|$)/;
 const LEADER_ENDPOINT_HEADER = "x-arango-endpoint";
@@ -78,15 +76,15 @@ export type Config =
   | string
   | string[]
   | Partial<{
-    url: string | string[];
-    isAbsolute: boolean;
-    arangoVersion: number;
-    loadBalancingStrategy: LoadBalancingStrategy;
-    maxRetries: false | number;
-    agent: any;
-    agentOptions: { [key: string]: any };
-    headers: { [key: string]: string };
-  }>;
+      url: string | string[];
+      isAbsolute: boolean;
+      arangoVersion: number;
+      loadBalancingStrategy: LoadBalancingStrategy;
+      maxRetries: false | number;
+      agent: any;
+      agentOptions: { [key: string]: any };
+      headers: { [key: string]: string };
+    }>;
 
 export class Connection {
   private _activeTasks: number = 0;
@@ -118,12 +116,14 @@ export class Connection {
       this._databaseName = false;
     }
     this._agent = config.agent;
-    this._agentOptions = isBrowser ? { ...config.agentOptions! } : {
-      maxSockets: 3,
-      keepAlive: true,
-      keepAliveMsecs: 1000,
-      ...config.agentOptions,
-    };
+    this._agentOptions = isBrowser
+      ? { ...config.agentOptions! }
+      : {
+          maxSockets: 3,
+          keepAlive: true,
+          keepAliveMsecs: 1000,
+          ...config.agentOptions,
+        };
     this._maxTasks = this._agentOptions.maxSockets || 3;
     if (this._agentOptions.keepAlive) this._maxTasks *= 2;
 
@@ -139,7 +139,9 @@ export class Connection {
     }
 
     const urls = config.url
-      ? Array.isArray(config.url) ? config.url : [config.url]
+      ? Array.isArray(config.url)
+        ? config.url
+        : [config.url]
       : ["http://localhost:8529"];
     this.addToHostList(urls);
 
@@ -237,17 +239,17 @@ export class Connection {
   }
 
   addToHostList(urls: string | string[]): number[] {
-    const cleanUrls = (Array.isArray(urls) ? urls : [urls]).map((url) =>
+    const cleanUrls = (Array.isArray(urls) ? urls : [urls]).map(url =>
       sanitizeUrl(url)
     );
-    const newUrls = cleanUrls.filter((url) => this._urls.indexOf(url) === -1);
+    const newUrls = cleanUrls.filter(url => this._urls.indexOf(url) === -1);
     this._urls.push(...newUrls);
     this._hosts.push(
       ...newUrls.map((url: string) =>
         createRequest(url, this._agentOptions, this._agent)
-      ),
+      )
     );
-    return cleanUrls.map((url) => this._urls.indexOf(url));
+    return cleanUrls.map(url => this._urls.indexOf(url));
   }
 
   get arangoMajor() {
@@ -299,7 +301,7 @@ export class Connection {
       headers,
       ...urlInfo
     }: RequestOptions,
-    getter?: ReqGetter<T>,
+    getter?: RequestGetter<T>
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       let contentType = "text/plain";
@@ -337,12 +339,17 @@ export class Connection {
           body,
         },
         reject,
-        resolve: async (res: ArangojsResponse) => {
+        resolve: async (res: ArangojsResponse | ArangoError | HttpError) => {
+          if (res instanceof ArangoError || res instanceof HttpError) {
+            reject(res);
+            return;
+          }
+
           const contentType = res.headers.get("content-type");
           let parsedBody: any = undefined;
           if (res.body.length && contentType && contentType.match(MIME_JSON)) {
             try {
-              parsedBody = await res.json();
+              parsedBody = res.body;
             } catch (e) {
               if (!expectBinary) {
                 if (typeof parsedBody !== "string") {
@@ -367,11 +374,11 @@ export class Connection {
             parsedBody.hasOwnProperty("errorNum")
           ) {
             reject(new ArangoError({ ...res, body: parsedBody }));
-          } else if (res.status && res.status >= 400) {
-            reject(new HttpError({ ...res, body: parsedBody }));
           } else {
             resolve(
-              getter ? getter({ ...res, body: parsedBody }) : (res as any),
+              typeof getter === "function"
+                ? getter({ ...res, body: parsedBody })
+                : (res as any)
             );
           }
         },
@@ -381,4 +388,4 @@ export class Connection {
   }
 }
 
-type ReqGetter<T = any> = (res: ArangojsResponse) => T;
+type RequestGetter<T = any> = (res: ArangojsResponse) => T;
